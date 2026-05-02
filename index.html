@@ -363,6 +363,142 @@
     .rel-title { font-size: 0.85rem; font-weight: 600; color: #e2e8f0; line-height: 1.3; margin-bottom: 0.2rem; }
     .rel-authors { font-size: 0.72rem; color: #64748b; }
 
+    /* Chat view */
+    #chat-view {
+      position: fixed;
+      inset: 0;
+      z-index: 25;
+      background: #0f0f1a;
+      display: flex;
+      flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+    }
+    #chat-view.open { transform: translateX(0); }
+
+    #chat-nav {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: calc(env(safe-area-inset-top) + 0.65rem) 1rem 0.65rem;
+      background: rgba(15,15,26,0.95);
+      border-bottom: 1px solid #1e1e3a;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+    #chat-back-btn {
+      background: none; border: none; color: #a78bfa;
+      font-size: 0.95rem; font-weight: 600; cursor: pointer;
+      padding: 0.3rem 0; white-space: nowrap; flex-shrink: 0;
+    }
+    #chat-nav-title {
+      font-size: 0.82rem; color: #64748b;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      flex: 1; min-width: 0;
+    }
+    #chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 1rem 1rem 0.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .chat-context {
+      display: grid;
+      grid-template-columns: 52px 1fr;
+      gap: 0.6rem;
+      background: #1e1e3a;
+      border: 1px solid #2d2d5e;
+      border-radius: 0.75rem;
+      padding: 0.7rem;
+    }
+    .chat-context-thumb {
+      width: 52px; aspect-ratio: 4/3; object-fit: cover;
+      border-radius: 0.35rem; background: #0f0f1a; display: block;
+    }
+    .chat-context-fallback {
+      width: 52px; aspect-ratio: 4/3; background: #0f0f1a;
+      border-radius: 0.35rem; display: grid; place-items: center;
+      font-size: 1.2rem;
+    }
+    .chat-context-title { font-size: 0.82rem; font-weight: 600; color: #e2e8f0; line-height: 1.3; }
+    .chat-context-hint  { font-size: 0.72rem; color: #475569; margin-top: 0.2rem; }
+    .msg { max-width: 86%; }
+    .msg-user      { align-self: flex-end; }
+    .msg-assistant { align-self: flex-start; }
+    .msg-bubble {
+      padding: 0.65rem 0.9rem;
+      font-size: 0.9rem;
+      line-height: 1.55;
+      border-radius: 1.1rem;
+    }
+    .msg-user .msg-bubble {
+      background: #7c3aed; color: #fff;
+      border-bottom-right-radius: 0.3rem;
+    }
+    .msg-assistant .msg-bubble {
+      background: #1e1e3a; color: #e2e8f0;
+      border: 1px solid #2d2d5e;
+      border-bottom-left-radius: 0.3rem;
+    }
+    .chat-setup {
+      background: #1e1e3a;
+      border: 1px solid #2d2d5e;
+      border-radius: 0.9rem;
+      padding: 1rem;
+    }
+    .setup-title { font-size: 0.9rem; font-weight: 600; color: #e2e8f0; margin-bottom: 0.4rem; }
+    .setup-hint  { font-size: 0.78rem; color: #64748b; margin-bottom: 0.85rem; }
+    .setup-hint a { color: #a78bfa; }
+    .setup-row   { display: flex; gap: 0.5rem; }
+    .setup-input {
+      flex: 1; min-width: 0;
+      background: #0f0f1a; border: 1px solid #2d2d5e; border-radius: 0.5rem;
+      padding: 0.55rem 0.75rem; color: #e2e8f0; font-size: 0.85rem; font-family: inherit;
+    }
+    .setup-save {
+      background: #7c3aed; color: #fff; border: none;
+      border-radius: 0.5rem; padding: 0.55rem 0.9rem;
+      font-size: 0.85rem; font-weight: 600; cursor: pointer; white-space: nowrap;
+    }
+    #chat-input-bar {
+      flex-shrink: 0;
+      display: flex;
+      gap: 0.5rem;
+      align-items: flex-end;
+      padding: 0.6rem 0.75rem calc(env(safe-area-inset-bottom) + 0.65rem);
+      background: rgba(15,15,26,0.95);
+      border-top: 1px solid #1e1e3a;
+    }
+    #chat-input {
+      flex: 1;
+      background: #1e1e3a;
+      border: 1px solid #2d2d5e;
+      border-radius: 1rem;
+      padding: 0.65rem 0.85rem;
+      color: #e2e8f0;
+      font-size: 0.95rem;
+      font-family: inherit;
+      resize: none;
+      max-height: 120px;
+      line-height: 1.4;
+      -webkit-appearance: none;
+    }
+    #chat-input:focus { outline: none; border-color: #7c3aed; }
+    #chat-send-btn {
+      width: 38px; height: 38px; flex-shrink: 0;
+      background: #7c3aed; color: #fff;
+      border: none; border-radius: 50%;
+      font-size: 1.2rem; cursor: pointer;
+      display: grid; place-items: center;
+      transition: opacity 0.15s;
+    }
+    #chat-send-btn:disabled { background: #1e1e3a; color: #475569; cursor: default; }
+    .btn-chat { background: #0d1b2a; color: #67e8f9; border: 1px solid #164e63; }
+
     #install-banner {
       display: none;
       background: #1e3a5f;
@@ -470,6 +606,18 @@
   <div id="status">Loading papers…</div>
   <ul id="list"></ul>
 </main>
+
+<div id="chat-view">
+  <div id="chat-nav">
+    <button id="chat-back-btn" type="button">← Back</button>
+    <div id="chat-nav-title"></div>
+  </div>
+  <div id="chat-messages"></div>
+  <div id="chat-input-bar">
+    <textarea id="chat-input" placeholder="Ask about this paper…" rows="1"></textarea>
+    <button id="chat-send-btn" type="button" disabled aria-label="Send">↑</button>
+  </div>
+</div>
 
 <div id="paper-view">
   <div id="paper-nav">
@@ -874,6 +1022,7 @@
         <a class="btn-primary" href="https://arxiv.org/pdf/${encodeURIComponent(paper.id)}.pdf" target="_blank" rel="noopener">Open PDF</a>
         <a class="btn-secondary" href="https://huggingface.co/papers/${encodeURIComponent(paper.id)}" target="_blank" rel="noopener">View on HF</a>
         <button class="btn-share" type="button" data-share-id="${escapeHtml(paper.id)}">Share ↗</button>
+        <button class="btn-chat"  type="button" id="pv-chat-btn">💬 Chat</button>
       </div>
       <div class="related-heading">Related Papers</div>
       <div id="related-status">Loading…</div>
@@ -881,6 +1030,8 @@
 
     paperBodyEl.querySelector("[data-share-id]")
       .addEventListener("click", e => sharePaper(e.currentTarget.dataset.shareId));
+    paperBodyEl.querySelector("#pv-chat-btn")
+      .addEventListener("click", () => openChat(paper));
 
     loadRelated(paper);
   }
@@ -974,7 +1125,202 @@
   }
 
   $("paper-back").addEventListener("click", () => history.back());
-  window.addEventListener("popstate", () => { if (paperViewOpen) closePaperView(); });
+  window.addEventListener("popstate", () => {
+    if (chatViewOpen) { closeChatView(); return; }
+    if (paperViewOpen) { closePaperView(); }
+  });
+
+  // --- AI Chat ---
+  const chatViewEl     = $("chat-view");
+  const chatMessagesEl = $("chat-messages");
+  const chatInputEl    = $("chat-input");
+  const chatSendBtn    = $("chat-send-btn");
+  let chatViewOpen = false;
+  let chatPaper    = null;
+  let chatHistory  = [];
+  let chatMsgIdx   = 0;
+
+  function openChat(paper) {
+    chatPaper   = paper;
+    chatHistory = [];
+    chatMsgIdx  = 0;
+
+    $("chat-nav-title").textContent = paper.title;
+
+    const thumb = paper.thumbnail
+      ? `<img class="chat-context-thumb" src="${escapeHtml(paper.thumbnail)}" alt="" />`
+      : `<div class="chat-context-fallback">📄</div>`;
+    chatMessagesEl.innerHTML = `
+      <div class="chat-context">
+        ${thumb}
+        <div>
+          <div class="chat-context-title">${escapeHtml(paper.title)}</div>
+          <div class="chat-context-hint">Ask anything about this paper</div>
+        </div>
+      </div>`;
+
+    if (localStorage.getItem("chat:apikey")) {
+      addBubble("assistant", `Hi! Ready to discuss **${escapeHtml(paper.title)}**. What would you like to know?`);
+    } else {
+      appendKeySetup();
+    }
+
+    history.pushState({ chat: true }, "");
+    chatInputEl.value = "";
+    chatInputEl.style.height = "";
+    chatSendBtn.disabled = true;
+    chatViewEl.classList.add("open");
+    chatViewOpen = true;
+    setTimeout(() => chatInputEl.focus(), 350);
+  }
+
+  function closeChatView() {
+    chatViewEl.classList.remove("open");
+    chatViewOpen = false;
+  }
+
+  function appendKeySetup() {
+    const div = document.createElement("div");
+    div.className = "chat-setup";
+    div.innerHTML = `
+      <div class="setup-title">Add your Anthropic API key to start chatting</div>
+      <div class="setup-hint">Get a free key at <a href="https://console.anthropic.com" target="_blank" rel="noopener">console.anthropic.com</a>. Stored only on this device, never sent anywhere except Anthropic.</div>
+      <div class="setup-row">
+        <input class="setup-input" id="apikey-input" type="password" placeholder="sk-ant-api03-…" autocomplete="off" spellcheck="false" />
+        <button class="setup-save" id="apikey-save" type="button">Save</button>
+      </div>`;
+    chatMessagesEl.appendChild(div);
+    requestAnimationFrame(() => $("apikey-input")?.focus());
+    $("apikey-save").addEventListener("click", () => {
+      const key = ($("apikey-input").value || "").trim();
+      if (!key) return;
+      localStorage.setItem("chat:apikey", key);
+      div.remove();
+      addBubble("assistant", `API key saved! Ready to discuss **${escapeHtml(chatPaper.title)}**. What would you like to know?`);
+    });
+    $("apikey-input").addEventListener("keydown", e => {
+      if (e.key === "Enter") $("apikey-save").click();
+    });
+  }
+
+  function addBubble(role, text) {
+    const id = `cm-${++chatMsgIdx}`;
+    const el = document.createElement("div");
+    el.className = `msg msg-${role}`;
+    el.id = id;
+    el.innerHTML = `<div class="msg-bubble">${renderMd(text)}</div>`;
+    chatMessagesEl.appendChild(el);
+    chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+    return id;
+  }
+
+  function updateBubble(id, text) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.querySelector(".msg-bubble").innerHTML = renderMd(text);
+    chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+  }
+
+  function renderMd(text) {
+    return escapeHtml(text)
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/`([^`]+)`/g, "<code style='background:#0f172a;padding:.1em .35em;border-radius:.3em;font-size:.88em'>$1</code>")
+      .replace(/\n/g, "<br>");
+  }
+
+  async function sendChat(text) {
+    const apiKey = localStorage.getItem("chat:apikey") || "";
+    if (!apiKey || !text.trim() || !chatPaper) return;
+
+    chatHistory.push({ role: "user", content: text });
+    addBubble("user", text);
+    chatInputEl.value = "";
+    chatInputEl.style.height = "";
+    chatSendBtn.disabled = true;
+
+    const system = [
+      "You are a helpful AI research assistant discussing an academic paper.",
+      "",
+      `Title: ${chatPaper.title}`,
+      `Authors: ${chatPaper.authors.join(", ")}`,
+      `Abstract: ${chatPaper.summary || "Not available."}`,
+      "",
+      "Answer questions about this paper clearly and concisely. Explain technical terms, discuss methodology, compare with related work, and highlight key contributions. If asked something beyond the abstract, be honest about the limits of your knowledge.",
+    ].join("\n");
+
+    const loadId = addBubble("assistant", "…");
+
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+          "anthropic-dangerous-allow-browser": "true",
+        },
+        body: JSON.stringify({
+          model: "claude-haiku-4-5-20251001",
+          max_tokens: 1024,
+          system,
+          messages: chatHistory,
+          stream: true,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error?.message || `HTTP ${res.status}`);
+      }
+
+      const reader  = res.body.getReader();
+      const decoder = new TextDecoder();
+      let full = "";
+
+      outer: while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        for (const line of decoder.decode(value, { stream: true }).split("\n")) {
+          if (!line.startsWith("data: ")) continue;
+          const raw = line.slice(6).trim();
+          if (raw === "[DONE]") break outer;
+          try {
+            const evt = JSON.parse(raw);
+            if (evt.type === "content_block_delta" && evt.delta?.text) {
+              full += evt.delta.text;
+              updateBubble(loadId, full);
+            }
+          } catch {}
+        }
+      }
+
+      if (full) chatHistory.push({ role: "assistant", content: full });
+
+    } catch (err) {
+      updateBubble(loadId, "Error: " + err.message + (
+        err.message.includes("401") ? "\n\nCheck your API key in Settings → clear localStorage and re-enter." : ""
+      ));
+    }
+  }
+
+  $("chat-back-btn").addEventListener("click", () => history.back());
+
+  chatInputEl.addEventListener("input", () => {
+    chatSendBtn.disabled = !chatInputEl.value.trim();
+    chatInputEl.style.height = "auto";
+    chatInputEl.style.height = Math.min(chatInputEl.scrollHeight, 120) + "px";
+  });
+
+  chatInputEl.addEventListener("keydown", e => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      if (!chatSendBtn.disabled) sendChat(chatInputEl.value.trim());
+    }
+  });
+
+  chatSendBtn.addEventListener("click", () => {
+    if (!chatSendBtn.disabled) sendChat(chatInputEl.value.trim());
+  });
 
   // --- Share Target ---
   async function handleShareTarget() {
