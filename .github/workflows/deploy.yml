@@ -23,11 +23,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Inject worker URL
-        env:
-          WORKER_URL: ${{ secrets.WORKER_URL }}
-        run: sed -i "s|__WORKER_URL__|${WORKER_URL}|g" index.html
-
       - uses: actions/configure-pages@v5
 
       - uses: actions/upload-pages-artifact@v3

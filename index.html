@@ -1182,7 +1182,7 @@
       .replace(/\n/g, "<br>");
   }
 
-  const WORKER_URL = "__WORKER_URL__";
+  const CHAT_URL = "/.netlify/functions/chat";
 
   async function sendChat(text) {
     if (!text.trim() || !chatPaper) return;
@@ -1207,7 +1207,7 @@
     const loadId = addBubble("assistant", "…");
 
     try {
-      const res = await fetch(`${WORKER_URL}/chat`, {
+      const res = await fetch(CHAT_URL, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ system, messages: chatHistory }),
