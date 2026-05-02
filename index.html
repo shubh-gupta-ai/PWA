@@ -234,16 +234,20 @@
     }
     .paper.expanded .actions { display: flex; }
 
-    .actions a {
+    .actions a, .btn-share {
       display: inline-block;
       padding: 0.5rem 0.95rem;
       border-radius: 0.5rem;
       font-size: 0.82rem;
       font-weight: 600;
       text-decoration: none;
+      cursor: pointer;
     }
-    .btn-primary { background: #7c3aed; color: #fff; }
-    .btn-secondary { background: #312e81; color: #c4b5fd; }
+    .btn-primary { background: #7c3aed; color: #fff; border: none; }
+    .btn-secondary { background: #312e81; color: #c4b5fd; border: none; }
+    .btn-share { background: #0f172a; color: #94a3b8; border: 1px solid #2d2d5e; }
+
+    .paper.highlight { border-color: #a78bfa !important; box-shadow: 0 0 0 3px rgba(167,139,250,0.18); }
 
     #install-banner {
       display: none;
@@ -387,6 +391,7 @@
     query: "",
     sort: localStorage.getItem("papers:sort") || "top",
     fetchedAt: null,
+    pendingScroll: null,
   };
 
   function todayUTC() {
@@ -626,6 +631,12 @@
     }
     statusEl.style.display = "none";
 
+    if (state.pendingScroll) {
+      const scrollId = state.pendingScroll;
+      state.pendingScroll = null;
+      requestAnimationFrame(() => scrollToPaper(scrollId));
+    }
+
     listEl.innerHTML = filtered.map(p => {
       const authors = p.authors.length
         ? (p.authors.slice(0, 3).join(", ") + (p.authors.length > 3 ? `, +${p.authors.length - 3}` : ""))
@@ -648,6 +659,7 @@
             <div class="actions">
               <a class="btn-primary" href="https://arxiv.org/pdf/${encodeURIComponent(p.id)}.pdf" target="_blank" rel="noopener">Open PDF</a>
               <a class="btn-secondary" href="https://huggingface.co/papers/${encodeURIComponent(p.id)}" target="_blank" rel="noopener">View on HF</a>
+              <button class="btn-share" type="button" data-share-id="${escapeHtml(p.id)}">Share ↗</button>
             </div>
           </div>
         </li>`;
@@ -660,6 +672,47 @@
     toastEl.classList.add("show");
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => toastEl.classList.remove("show"), 2400);
+  }
+
+  // --- Deep Links & Paper Sharing ---
+  function sharePaper(id) {
+    const date = findPaperDate(id);
+    const url = `${location.origin}${location.pathname}?paper=${encodeURIComponent(id)}&date=${encodeURIComponent(date)}`;
+    const paper = state.papers.find(p => p.id === id);
+    const title = paper ? paper.title : "Paper";
+    if (navigator.share) {
+      navigator.share({ title, url }).catch(err => {
+        if (err.name !== "AbortError") copyToClipboard(url);
+      });
+    } else {
+      copyToClipboard(url);
+    }
+  }
+
+  function findPaperDate(id) {
+    for (let i = 0; i < 30; i++) {
+      const d = offsetDate(i);
+      const c = readCache(`papers:${d}`);
+      if (c && c.papers.some(p => p.id === id)) return d;
+    }
+    return state.date.startsWith("all") ? todayUTC() : state.date;
+  }
+
+  async function copyToClipboard(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast("Link copied!");
+    } catch {
+      showToast("Couldn't copy link");
+    }
+  }
+
+  function scrollToPaper(id) {
+    const el = listEl.querySelector(`[data-id="${CSS.escape(id)}"]`);
+    if (!el) return;
+    el.classList.add("expanded", "highlight");
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    setTimeout(() => el.classList.remove("highlight"), 1800);
   }
 
   // --- Share Target ---
@@ -763,6 +816,8 @@
   refreshEl.addEventListener("click", () => fetchPapers(state.date));
 
   listEl.addEventListener("click", (e) => {
+    const shareBtn = e.target.closest("[data-share-id]");
+    if (shareBtn) { sharePaper(shareBtn.dataset.shareId); return; }
     if (e.target.closest("a, button")) return;
     const li = e.target.closest(".paper");
     if (!li) return;
@@ -793,6 +848,20 @@
   populateDateSelect();
   navigator.clearAppBadge?.().catch(() => {});
   handleShareTarget();
+
+  // Deep link: ?paper=arxivId&date=YYYY-MM-DD
+  const dlParams = new URLSearchParams(location.search);
+  const dlPaper = dlParams.get("paper");
+  const dlDate  = dlParams.get("date");
+  if (dlPaper) {
+    history.replaceState(null, "", location.pathname);
+    if (dlDate && /^\d{4}-\d{2}-\d{2}$/.test(dlDate)) {
+      state.date = dlDate;
+      if ([...dateEl.options].some(o => o.value === dlDate)) dateEl.value = dlDate;
+    }
+    state.pendingScroll = dlPaper;
+  }
+
   fetchPapers(state.date);
 
   // Visibility: save seen count when leaving, clear badge + maybe refresh when returning
