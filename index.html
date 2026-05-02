@@ -1206,13 +1206,13 @@
     const loadId = addBubble("assistant", "…");
 
     try {
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
+      const endpoint = PROXY + encodeURIComponent("https://api.anthropic.com/v1/messages");
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: {
           "x-api-key": CHAT_API_KEY,
           "anthropic-version": "2023-06-01",
           "content-type": "application/json",
-          "anthropic-dangerous-allow-browser": "true",
         },
         body: JSON.stringify({
           model: "claude-haiku-4-5-20251001",
