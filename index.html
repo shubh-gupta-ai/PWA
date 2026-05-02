@@ -269,6 +269,62 @@
       font-weight: 600;
       cursor: pointer;
     }
+
+    /* Share-target bottom sheet */
+    #share-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      visibility: hidden;
+      pointer-events: none;
+    }
+    #share-modal.open {
+      visibility: visible;
+      pointer-events: auto;
+    }
+    #share-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.65);
+      opacity: 0;
+      transition: opacity 0.25s ease;
+    }
+    #share-modal.open #share-backdrop { opacity: 1; }
+    #share-sheet {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      background: #131325;
+      border-radius: 1.25rem 1.25rem 0 0;
+      border-top: 1px solid #2d2d5e;
+      padding: 1rem 1rem calc(env(safe-area-inset-bottom) + 1.25rem);
+      max-height: 82vh;
+      overflow-y: auto;
+      transform: translateY(100%);
+      transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+    }
+    #share-modal.open #share-sheet { transform: translateY(0); }
+    .share-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.9rem;
+    }
+    .share-label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #a78bfa;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+    }
+    #share-close {
+      background: none;
+      border: none;
+      color: #64748b;
+      font-size: 1.4rem;
+      cursor: pointer;
+      line-height: 1;
+      padding: 0.15rem 0.3rem;
+    }
   </style>
 </head>
 <body>
@@ -296,6 +352,17 @@
   <div id="status">Loading papers…</div>
   <ul id="list"></ul>
 </main>
+
+<div id="share-modal">
+  <div id="share-backdrop"></div>
+  <div id="share-sheet">
+    <div class="share-header">
+      <span class="share-label">Shared Paper</span>
+      <button id="share-close" type="button" aria-label="Close">✕</button>
+    </div>
+    <div id="share-content"></div>
+  </div>
+</div>
 
 <div id="toast" role="status" aria-live="polite"></div>
 
@@ -429,6 +496,7 @@
         state.papers = fresh;
         state.fetchedAt = Date.now();
         writeCache(cacheKey, { papers: fresh, fetchedAt: state.fetchedAt });
+        updateBadge(fresh);
         render();
       } catch (err) {
         console.warn("fetch failed:", err);
@@ -594,6 +662,86 @@
     toastTimer = setTimeout(() => toastEl.classList.remove("show"), 2400);
   }
 
+  // --- Share Target ---
+  async function handleShareTarget() {
+    const params = new URLSearchParams(location.search);
+    const raw = params.get("url") || params.get("text") || "";
+    if (!raw) return;
+
+    // Remove share params so a refresh doesn't re-trigger
+    history.replaceState(null, "", location.pathname);
+
+    // Extract arxiv ID from common URL patterns
+    const match = raw.match(/(?:arxiv\.org\/(?:abs|pdf)\/|huggingface\.co\/papers\/)(\d{4}\.\d+)/i);
+    if (!match) return;
+    const id = match[1];
+
+    // Fast path: search all cached days
+    let paper = null;
+    for (let i = 0; i < 30; i++) {
+      const c = readCache(`papers:${offsetDate(i)}`);
+      if (!c) continue;
+      paper = c.papers.find(p => p.id === id || p.id.startsWith(id + "v"));
+      if (paper) break;
+    }
+
+    // Fallback: fetch from HF single-paper API
+    if (!paper) {
+      try {
+        const url = `https://huggingface.co/api/papers/${id}`;
+        let r;
+        try { r = await fetch(url, { mode: "cors" }); if (!r.ok) throw 0; }
+        catch { r = await fetch(PROXY + encodeURIComponent(url)); }
+        if (r && r.ok) {
+          const data = await r.json();
+          paper = normalize([{ paper: data, title: data.title, thumbnail: data.thumbnail }])[0];
+        }
+      } catch {}
+    }
+
+    // Last resort: minimal stub so the sheet still opens with action buttons
+    if (!paper) paper = { id, title: id, summary: "", authors: [], upvotes: 0, thumbnail: "" };
+
+    showSharedPaper(paper);
+  }
+
+  function showSharedPaper(p) {
+    const authors = p.authors.length
+      ? p.authors.slice(0, 3).join(", ") + (p.authors.length > 3 ? `, +${p.authors.length - 3}` : "")
+      : "";
+    const thumb = p.thumbnail
+      ? `<img class="thumb" loading="lazy" src="${escapeHtml(p.thumbnail)}" alt="" />`
+      : `<div class="thumb no-img">📄</div>`;
+
+    $("share-content").innerHTML = `
+      <div class="paper expanded" style="cursor:default;margin-bottom:0;border-color:#7c3aed">
+        ${thumb}
+        <div class="info">
+          <div class="title">${escapeHtml(p.title)}</div>
+          ${authors ? `<div class="authors">${escapeHtml(authors)}</div>` : ""}
+          ${p.upvotes ? `<div class="row"><span class="upvotes">▲ ${p.upvotes}</span></div>` : ""}
+          ${p.summary ? `<p class="abstract">${escapeHtml(p.summary)}</p>` : ""}
+          <div class="actions" style="display:flex">
+            <a class="btn-primary" href="https://arxiv.org/pdf/${encodeURIComponent(p.id)}.pdf" target="_blank" rel="noopener">Open PDF</a>
+            <a class="btn-secondary" href="https://huggingface.co/papers/${encodeURIComponent(p.id)}" target="_blank" rel="noopener">View on HF</a>
+          </div>
+        </div>
+      </div>`;
+
+    $("share-modal").classList.add("open");
+  }
+
+  $("share-close").addEventListener("click", () => $("share-modal").classList.remove("open"));
+  $("share-backdrop").addEventListener("click", () => $("share-modal").classList.remove("open"));
+
+  // --- App Badging ---
+  function updateBadge(freshPapers) {
+    if (!("setAppBadge" in navigator) || state.date !== todayUTC()) return;
+    const lastSeen = parseInt(localStorage.getItem(`badge:seen:${todayUTC()}`) || "0", 10);
+    const n = Math.max(0, freshPapers.length - lastSeen);
+    if (n > 0) navigator.setAppBadge(n).catch(() => {});
+  }
+
   // Events
   searchEl.addEventListener("input", () => {
     state.query = searchEl.value;
@@ -643,12 +791,20 @@
 
   // Boot
   populateDateSelect();
+  navigator.clearAppBadge?.().catch(() => {});
+  handleShareTarget();
   fetchPapers(state.date);
 
-  // Refresh-on-foreground
+  // Visibility: save seen count when leaving, clear badge + maybe refresh when returning
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible" && state.fetchedAt && Date.now() - state.fetchedAt > 5 * 60 * 1000) {
-      fetchPapers(state.date);
+    if (document.visibilityState === "hidden" && state.date === todayUTC() && state.papers.length) {
+      localStorage.setItem(`badge:seen:${todayUTC()}`, state.papers.length);
+    }
+    if (document.visibilityState === "visible") {
+      navigator.clearAppBadge?.().catch(() => {});
+      if (state.fetchedAt && Date.now() - state.fetchedAt > 5 * 60 * 1000) {
+        fetchPapers(state.date);
+      }
     }
   });
 })();
