@@ -2,8 +2,10 @@ name = "hf-papers-chat"
 main = "worker.js"
 compatibility_date = "2024-01-01"
 
-# After `wrangler deploy`, copy the printed URL into the PWA:
-#   https://hf-papers-chat.<your-subdomain>.workers.dev
-#
-# Then run once:
-#   wrangler secret put ANTHROPIC_KEY
+# After `wrangler kv:namespace create RATE`, paste the returned id below
+[[kv_namespaces]]
+binding = "RATE"
+id = "PASTE_KV_NAMESPACE_ID_HERE"
+
+# Secrets (set with `wrangler secret put`):
+#   ANTHROPIC_KEY  — your sk-ant-… key

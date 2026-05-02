@@ -1182,21 +1182,7 @@
       .replace(/\n/g, "<br>");
   }
 
-  const CHAT_API_KEY = "__ANTHROPIC_KEY__";
-  const RATE_LIMIT = 10;
-
-  function checkRateLimit() {
-    const now = Date.now();
-    const calls = JSON.parse(localStorage.getItem("chat:calls") || "[]")
-      .filter(t => now - t < 60_000);
-    if (calls.length >= RATE_LIMIT) {
-      const secs = Math.ceil((60_000 - (now - calls[0])) / 1000);
-      return `Rate limit reached (${RATE_LIMIT} messages/min). Try again in ${secs}s.`;
-    }
-    calls.push(now);
-    try { localStorage.setItem("chat:calls", JSON.stringify(calls)); } catch {}
-    return null;
-  }
+  const WORKER_URL = "__WORKER_URL__";
 
   async function sendChat(text) {
     if (!text.trim() || !chatPaper) return;
@@ -1205,14 +1191,8 @@
     chatInputEl.style.height = "";
     chatSendBtn.disabled = true;
 
-    const rateErr = checkRateLimit();
-    addBubble("user", text);
-    if (rateErr) {
-      addBubble("assistant", rateErr);
-      return;
-    }
-
     chatHistory.push({ role: "user", content: text });
+    addBubble("user", text);
 
     const system = [
       "You are a helpful AI research assistant discussing an academic paper.",
@@ -1227,26 +1207,15 @@
     const loadId = addBubble("assistant", "…");
 
     try {
-      const endpoint = PROXY + encodeURIComponent("https://api.anthropic.com/v1/messages");
-      const res = await fetch(endpoint, {
+      const res = await fetch(`${WORKER_URL}/chat`, {
         method: "POST",
-        headers: {
-          "x-api-key": CHAT_API_KEY,
-          "anthropic-version": "2023-06-01",
-          "content-type": "application/json",
-          "anthropic-dangerous-direct-browser-access": "true",
-        },
-        body: JSON.stringify({
-          model: "claude-haiku-4-5-20251001",
-          max_tokens: 1024,
-          system,
-          messages: chatHistory,
-        }),
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ system, messages: chatHistory }),
       });
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error?.message || `HTTP ${res.status}`);
+        throw new Error(err.error || `HTTP ${res.status}`);
       }
 
       const data = await res.json();
