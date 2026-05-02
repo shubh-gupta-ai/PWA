@@ -5,29 +5,35 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
 jobs:
   deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
     steps:
       - uses: actions/checkout@v4
 
-      - name: Inject key and deploy to gh-pages
+      - name: Inject API key
         env:
           ANTHROPIC_KEY: ${{ secrets.ANTHROPIC_KEY }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          mkdir /tmp/site
-          cp -r . /tmp/site/
-          sed -i "s|__ANTHROPIC_KEY__|${ANTHROPIC_KEY}|g" /tmp/site/index.html
+        run: sed -i "s|__ANTHROPIC_KEY__|${ANTHROPIC_KEY}|g" index.html
 
-          cd /tmp/site
-          git init
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "Deploy [skip ci]"
-          git remote set-url origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
-          git push origin HEAD:gh-pages --force
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
