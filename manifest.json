@@ -1,7 +1,7 @@
 {
-  "name": "My PWA",
-  "short_name": "MyPWA",
-  "description": "A simple Progressive Web App",
+  "name": "HF Daily Papers",
+  "short_name": "Papers",
+  "description": "Browse Hugging Face daily papers, search abstracts, open PDFs.",
   "start_url": ".",
   "display": "standalone",
   "orientation": "portrait",

@@ -1,4 +1,4 @@
-const CACHE = 'pwa-v1';
+const CACHE = 'papers-shell-v1';
 const ASSETS = ['./', './index.html', './manifest.json', './icons/icon-192.png', './icons/icon-512.png'];
 
 self.addEventListener('install', e => {
@@ -15,8 +15,9 @@ self.addEventListener('activate', e => {
   self.clients.claim();
 });
 
-// Cache-first strategy for offline support
 self.addEventListener('fetch', e => {
+  const url = new URL(e.request.url);
+  if (url.origin !== self.location.origin) return;
   e.respondWith(
     caches.match(e.request).then(cached => cached || fetch(e.request))
   );
