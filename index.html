@@ -444,26 +444,7 @@
       border: 1px solid #2d2d5e;
       border-bottom-left-radius: 0.3rem;
     }
-    .chat-setup {
-      background: #1e1e3a;
-      border: 1px solid #2d2d5e;
-      border-radius: 0.9rem;
-      padding: 1rem;
-    }
-    .setup-title { font-size: 0.9rem; font-weight: 600; color: #e2e8f0; margin-bottom: 0.4rem; }
-    .setup-hint  { font-size: 0.78rem; color: #64748b; margin-bottom: 0.85rem; }
-    .setup-hint a { color: #a78bfa; }
-    .setup-row   { display: flex; gap: 0.5rem; }
-    .setup-input {
-      flex: 1; min-width: 0;
-      background: #0f0f1a; border: 1px solid #2d2d5e; border-radius: 0.5rem;
-      padding: 0.55rem 0.75rem; color: #e2e8f0; font-size: 0.85rem; font-family: inherit;
-    }
-    .setup-save {
-      background: #7c3aed; color: #fff; border: none;
-      border-radius: 0.5rem; padding: 0.55rem 0.9rem;
-      font-size: 0.85rem; font-weight: 600; cursor: pointer; white-space: nowrap;
-    }
+
     #chat-input-bar {
       flex-shrink: 0;
       display: flex;
@@ -1159,11 +1140,7 @@
         </div>
       </div>`;
 
-    if (localStorage.getItem("chat:workerUrl")) {
-      addBubble("assistant", `Hi! Ready to discuss **${escapeHtml(paper.title)}**. What would you like to know?`);
-    } else {
-      appendWorkerSetup();
-    }
+    addBubble("assistant", `Hi! Ready to discuss **${escapeHtml(paper.title)}**. What would you like to know?`);
 
     history.pushState({ chat: true }, "");
     chatInputEl.value = "";
@@ -1179,29 +1156,6 @@
     chatViewOpen = false;
   }
 
-  function appendWorkerSetup() {
-    const div = document.createElement("div");
-    div.className = "chat-setup";
-    div.innerHTML = `
-      <div class="setup-title">Connect your AI worker to start chatting</div>
-      <div class="setup-hint">Deploy the free Cloudflare Worker in <code style="background:#0f172a;padding:.1em .35em;border-radius:.3em;font-size:.88em">cf-worker/</code> in the repo, then paste its URL here. No API key required in the app.</div>
-      <div class="setup-row">
-        <input class="setup-input" id="worker-input" type="url" placeholder="https://hf-papers-chat.xyz.workers.dev" autocomplete="off" spellcheck="false" />
-        <button class="setup-save" id="worker-save" type="button">Save</button>
-      </div>`;
-    chatMessagesEl.appendChild(div);
-    requestAnimationFrame(() => $("worker-input")?.focus());
-    $("worker-save").addEventListener("click", () => {
-      const url = ($("worker-input").value || "").trim().replace(/\/$/, "");
-      if (!url) return;
-      localStorage.setItem("chat:workerUrl", url);
-      div.remove();
-      addBubble("assistant", `Worker connected! Ready to discuss **${escapeHtml(chatPaper.title)}**. What would you like to know?`);
-    });
-    $("worker-input").addEventListener("keydown", e => {
-      if (e.key === "Enter") $("worker-save").click();
-    });
-  }
 
   function addBubble(role, text) {
     const id = `cm-${++chatMsgIdx}`;
@@ -1228,9 +1182,10 @@
       .replace(/\n/g, "<br>");
   }
 
+  const CHAT_API_KEY = "__ANTHROPIC_KEY__";
+
   async function sendChat(text) {
-    const workerUrl = (localStorage.getItem("chat:workerUrl") || "").replace(/\/$/, "");
-    if (!workerUrl || !text.trim() || !chatPaper) return;
+    if (!text.trim() || !chatPaper) return;
 
     chatHistory.push({ role: "user", content: text });
     addBubble("user", text);
@@ -1251,14 +1206,20 @@
     const loadId = addBubble("assistant", "…");
 
     try {
-      const res = await fetch(`${workerUrl}/chat`, {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "x-api-key": CHAT_API_KEY,
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+          "anthropic-dangerous-allow-browser": "true",
+        },
         body: JSON.stringify({
           model: "claude-haiku-4-5-20251001",
           max_tokens: 1024,
           system,
           messages: chatHistory,
+          stream: true,
         }),
       });
 
@@ -1291,9 +1252,7 @@
       if (full) chatHistory.push({ role: "assistant", content: full });
 
     } catch (err) {
-      updateBubble(loadId, "Error: " + err.message + (
-        err.message.includes("401") ? "\n\nCheck that your Anthropic key is set as `ANTHROPIC_KEY` secret in the CF Worker." : ""
-      ));
+      updateBubble(loadId, "Error: " + err.message);
     }
   }
 
