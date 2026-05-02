@@ -1183,15 +1183,36 @@
   }
 
   const CHAT_API_KEY = "__ANTHROPIC_KEY__";
+  const RATE_LIMIT = 10;
+
+  function checkRateLimit() {
+    const now = Date.now();
+    const calls = JSON.parse(localStorage.getItem("chat:calls") || "[]")
+      .filter(t => now - t < 60_000);
+    if (calls.length >= RATE_LIMIT) {
+      const secs = Math.ceil((60_000 - (now - calls[0])) / 1000);
+      return `Rate limit reached (${RATE_LIMIT} messages/min). Try again in ${secs}s.`;
+    }
+    calls.push(now);
+    try { localStorage.setItem("chat:calls", JSON.stringify(calls)); } catch {}
+    return null;
+  }
 
   async function sendChat(text) {
     if (!text.trim() || !chatPaper) return;
 
-    chatHistory.push({ role: "user", content: text });
-    addBubble("user", text);
     chatInputEl.value = "";
     chatInputEl.style.height = "";
     chatSendBtn.disabled = true;
+
+    const rateErr = checkRateLimit();
+    addBubble("user", text);
+    if (rateErr) {
+      addBubble("assistant", rateErr);
+      return;
+    }
+
+    chatHistory.push({ role: "user", content: text });
 
     const system = [
       "You are a helpful AI research assistant discussing an academic paper.",
