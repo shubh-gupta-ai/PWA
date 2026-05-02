@@ -249,6 +249,120 @@
 
     .paper.highlight { border-color: #a78bfa !important; box-shadow: 0 0 0 3px rgba(167,139,250,0.18); }
 
+    /* Full-screen paper view */
+    #paper-view {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      background: #0f0f1a;
+      transform: translateX(100%);
+      transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    #paper-view.open { transform: translateX(0); }
+
+    #paper-nav {
+      position: sticky;
+      top: 0;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: calc(env(safe-area-inset-top) + 0.65rem) 1rem 0.65rem;
+      background: rgba(15,15,26,0.92);
+      backdrop-filter: saturate(150%) blur(12px);
+      -webkit-backdrop-filter: saturate(150%) blur(12px);
+      border-bottom: 1px solid #1e1e3a;
+      z-index: 1;
+    }
+    #paper-back {
+      background: none;
+      border: none;
+      color: #a78bfa;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 0.3rem 0;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    #paper-nav-title {
+      font-size: 0.82rem;
+      color: #64748b;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+      min-width: 0;
+    }
+    #paper-body {
+      padding: 1.25rem 1rem calc(env(safe-area-inset-bottom) + 3rem);
+      max-width: 720px;
+      margin: 0 auto;
+    }
+    .pv-thumb {
+      width: 100%;
+      aspect-ratio: 16/9;
+      object-fit: cover;
+      border-radius: 0.85rem;
+      background: #1e1e3a;
+      display: block;
+      margin-bottom: 1.1rem;
+    }
+    .pv-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #e2e8f0;
+      line-height: 1.35;
+      margin-bottom: 0.55rem;
+    }
+    .pv-authors {
+      font-size: 0.82rem;
+      color: #94a3b8;
+      margin-bottom: 0.45rem;
+      line-height: 1.4;
+    }
+    .pv-meta { display: flex; gap: 0.75rem; font-size: 0.78rem; color: #64748b; margin-bottom: 1.1rem; }
+    .pv-abstract { font-size: 0.9rem; line-height: 1.7; color: #cbd5e1; margin-bottom: 1.35rem; }
+    .pv-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 2rem; }
+
+    .related-heading {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #475569;
+      margin-bottom: 0.7rem;
+    }
+    #related-status { font-size: 0.82rem; color: #64748b; padding: 0.4rem 0 1rem; }
+    #related-list { list-style: none; }
+    .rel-card {
+      display: grid;
+      grid-template-columns: 72px 1fr;
+      gap: 0.6rem;
+      padding: 0.75rem;
+      background: #1e1e3a;
+      border: 1px solid #2d2d5e;
+      border-radius: 0.75rem;
+      margin-bottom: 0.6rem;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .rel-card:active { border-color: #7c3aed; }
+    .rel-thumb {
+      width: 72px;
+      aspect-ratio: 4/3;
+      object-fit: cover;
+      border-radius: 0.4rem;
+      background: #0f0f1a;
+      display: grid;
+      place-items: center;
+      font-size: 1.2rem;
+      color: #475569;
+    }
+    .rel-title { font-size: 0.85rem; font-weight: 600; color: #e2e8f0; line-height: 1.3; margin-bottom: 0.2rem; }
+    .rel-authors { font-size: 0.72rem; color: #64748b; }
+
     #install-banner {
       display: none;
       background: #1e3a5f;
@@ -357,6 +471,14 @@
   <ul id="list"></ul>
 </main>
 
+<div id="paper-view">
+  <div id="paper-nav">
+    <button id="paper-back" type="button">← Back</button>
+    <div id="paper-nav-title"></div>
+  </div>
+  <div id="paper-body"></div>
+</div>
+
 <div id="share-modal">
   <div id="share-backdrop"></div>
   <div id="share-sheet">
@@ -391,7 +513,7 @@
     query: "",
     sort: localStorage.getItem("papers:sort") || "top",
     fetchedAt: null,
-    pendingScroll: null,
+    pendingOpen: null,
   };
 
   function todayUTC() {
@@ -631,10 +753,10 @@
     }
     statusEl.style.display = "none";
 
-    if (state.pendingScroll) {
-      const scrollId = state.pendingScroll;
-      state.pendingScroll = null;
-      requestAnimationFrame(() => scrollToPaper(scrollId));
+    if (state.pendingOpen) {
+      const pid = state.pendingOpen;
+      const pp = state.papers.find(p => p.id === pid);
+      if (pp) { state.pendingOpen = null; requestAnimationFrame(() => openPaper(pp)); }
     }
 
     listEl.innerHTML = filtered.map(p => {
@@ -656,11 +778,6 @@
               ${date ? `<span class="date">${escapeHtml(date)}</span>` : ""}
             </div>
             <p class="abstract clamped">${escapeHtml(p.summary || "No abstract available.")}</p>
-            <div class="actions">
-              <a class="btn-primary" href="https://arxiv.org/pdf/${encodeURIComponent(p.id)}.pdf" target="_blank" rel="noopener">Open PDF</a>
-              <a class="btn-secondary" href="https://huggingface.co/papers/${encodeURIComponent(p.id)}" target="_blank" rel="noopener">View on HF</a>
-              <button class="btn-share" type="button" data-share-id="${escapeHtml(p.id)}">Share ↗</button>
-            </div>
           </div>
         </li>`;
     }).join("");
@@ -707,13 +824,157 @@
     }
   }
 
-  function scrollToPaper(id) {
-    const el = listEl.querySelector(`[data-id="${CSS.escape(id)}"]`);
-    if (!el) return;
-    el.classList.add("expanded", "highlight");
-    el.scrollIntoView({ behavior: "smooth", block: "center" });
-    setTimeout(() => el.classList.remove("highlight"), 1800);
+  // --- Paper View ---
+  const paperViewEl  = $("paper-view");
+  const paperBodyEl  = $("paper-body");
+  const paperNavTitleEl = $("paper-nav-title");
+  let paperViewOpen = false;
+  let currentPaper  = null;
+
+  function openPaper(paper) {
+    currentPaper = paper;
+    const date = findPaperDate(paper.id);
+    const url  = `?paper=${encodeURIComponent(paper.id)}&date=${encodeURIComponent(date)}`;
+    if (!paperViewOpen) {
+      history.pushState({ paperId: paper.id }, "", url);
+      paperViewEl.classList.add("open");
+      paperViewOpen = true;
+    } else {
+      history.replaceState({ paperId: paper.id }, "", url);
+    }
+    renderPaperView(paper);
+    paperViewEl.scrollTop = 0;
   }
+
+  function closePaperView() {
+    paperViewEl.classList.remove("open");
+    paperViewOpen = false;
+    currentPaper  = null;
+    history.replaceState(null, "", location.pathname);
+  }
+
+  function renderPaperView(paper) {
+    paperNavTitleEl.textContent = paper.title;
+    const authors = paper.authors.join(", ");
+    const date = paper.publishedAt ? shortDate(paper.publishedAt.slice(0, 10)) : "";
+    const thumb = paper.thumbnail
+      ? `<img class="pv-thumb" src="${escapeHtml(paper.thumbnail)}" alt="" />`
+      : "";
+
+    paperBodyEl.innerHTML = `
+      ${thumb}
+      <div class="pv-title">${escapeHtml(paper.title)}</div>
+      ${authors ? `<div class="pv-authors">${escapeHtml(authors)}</div>` : ""}
+      <div class="pv-meta">
+        ${paper.upvotes ? `<span class="upvotes">▲ ${paper.upvotes}</span>` : ""}
+        ${date ? `<span>${escapeHtml(date)}</span>` : ""}
+      </div>
+      <p class="pv-abstract">${escapeHtml(paper.summary || "No abstract available.")}</p>
+      <div class="pv-actions">
+        <a class="btn-primary" href="https://arxiv.org/pdf/${encodeURIComponent(paper.id)}.pdf" target="_blank" rel="noopener">Open PDF</a>
+        <a class="btn-secondary" href="https://huggingface.co/papers/${encodeURIComponent(paper.id)}" target="_blank" rel="noopener">View on HF</a>
+        <button class="btn-share" type="button" data-share-id="${escapeHtml(paper.id)}">Share ↗</button>
+      </div>
+      <div class="related-heading">Related Papers</div>
+      <div id="related-status">Loading…</div>
+      <ul id="related-list"></ul>`;
+
+    paperBodyEl.querySelector("[data-share-id]")
+      .addEventListener("click", e => sharePaper(e.currentTarget.dataset.shareId));
+
+    loadRelated(paper);
+  }
+
+  async function loadRelated(paper) {
+    if (paper.id !== currentPaper?.id) return;
+    const statusEl = $("related-status");
+    const relListEl = $("related-list");
+    let related = [];
+
+    // Try Semantic Scholar recommendations
+    try {
+      const ssUrl = `https://api.semanticscholar.org/recommendations/v1/papers/forpaper/ArXiv:${paper.id}?limit=8&fields=title,authors,year,externalIds`;
+      let r;
+      try { r = await fetch(ssUrl); if (!r.ok) throw 0; }
+      catch { r = await fetch(PROXY + encodeURIComponent(ssUrl)); }
+      const data = await r.json();
+      related = (data.recommendedPapers || [])
+        .filter(p => p.externalIds?.ArXiv)
+        .slice(0, 5)
+        .map(p => {
+          const id = p.externalIds.ArXiv;
+          const cached = findPaperInCache(id);
+          return cached || {
+            id, title: p.title,
+            authors: (p.authors || []).map(a => a.name),
+            publishedAt: p.year ? `${p.year}-01-01` : "",
+            upvotes: 0, summary: "", thumbnail: "",
+          };
+        });
+    } catch {}
+
+    // Fall back to local keyword match
+    if (!related.length) related = findRelatedLocal(paper);
+
+    if (paper.id !== currentPaper?.id) return;
+
+    if (!related.length) {
+      statusEl.textContent = "No related papers found.";
+      return;
+    }
+    statusEl.style.display = "none";
+
+    relListEl.innerHTML = related.map(p => {
+      const aut = p.authors.slice(0, 2).join(", ") + (p.authors.length > 2 ? `, +${p.authors.length - 2}` : "");
+      const thumbHtml = p.thumbnail
+        ? `<img class="rel-thumb" loading="lazy" src="${escapeHtml(p.thumbnail)}" alt="" />`
+        : `<div class="rel-thumb">📄</div>`;
+      return `<li class="rel-card" data-id="${escapeHtml(p.id)}">
+        ${thumbHtml}
+        <div>
+          <div class="rel-title">${escapeHtml(p.title)}</div>
+          ${aut ? `<div class="rel-authors">${escapeHtml(aut)}</div>` : ""}
+        </div>
+      </li>`;
+    }).join("");
+
+    relListEl.addEventListener("click", e => {
+      const card = e.target.closest(".rel-card");
+      if (!card) return;
+      const rel = related.find(p => p.id === card.dataset.id);
+      if (rel) openPaper(rel);
+    }, { once: true });
+  }
+
+  function findPaperInCache(id) {
+    for (let i = 0; i < 30; i++) {
+      const c = readCache(`papers:${offsetDate(i)}`);
+      if (!c) continue;
+      const p = c.papers.find(p => p.id === id);
+      if (p) return p;
+    }
+    return null;
+  }
+
+  function findRelatedLocal(paper) {
+    const stop = new Set(["a","an","the","of","in","on","for","to","with","and","or","is","are","as","by","via","from","using","based","approach","model","learning","deep","neural","network","towards","new"]);
+    const words = new Set(paper.title.toLowerCase().split(/\W+/).filter(w => w.length > 3 && !stop.has(w)));
+    const all = [];
+    for (let i = 0; i < 30; i++) {
+      const c = readCache(`papers:${offsetDate(i)}`);
+      if (c) all.push(...c.papers);
+    }
+    return all
+      .filter(p => p.id !== paper.id)
+      .map(p => ({ p, score: p.title.toLowerCase().split(/\W+/).filter(w => words.has(w)).length }))
+      .filter(x => x.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5)
+      .map(x => x.p);
+  }
+
+  $("paper-back").addEventListener("click", () => history.back());
+  window.addEventListener("popstate", () => { if (paperViewOpen) closePaperView(); });
 
   // --- Share Target ---
   async function handleShareTarget() {
@@ -816,12 +1077,11 @@
   refreshEl.addEventListener("click", () => fetchPapers(state.date));
 
   listEl.addEventListener("click", (e) => {
-    const shareBtn = e.target.closest("[data-share-id]");
-    if (shareBtn) { sharePaper(shareBtn.dataset.shareId); return; }
     if (e.target.closest("a, button")) return;
     const li = e.target.closest(".paper");
     if (!li) return;
-    li.classList.toggle("expanded");
+    const paper = state.papers.find(p => p.id === li.dataset.id);
+    if (paper) openPaper(paper);
   });
 
   // Service worker
@@ -859,7 +1119,7 @@
       state.date = dlDate;
       if ([...dateEl.options].some(o => o.value === dlDate)) dateEl.value = dlDate;
     }
-    state.pendingScroll = dlPaper;
+    state.pendingOpen = dlPaper;
   }
 
   fetchPapers(state.date);
