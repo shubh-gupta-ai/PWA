@@ -1219,7 +1219,6 @@
           max_tokens: 1024,
           system,
           messages: chatHistory,
-          stream: true,
         }),
       });
 
@@ -1228,28 +1227,12 @@
         throw new Error(err.error?.message || `HTTP ${res.status}`);
       }
 
-      const reader  = res.body.getReader();
-      const decoder = new TextDecoder();
-      let full = "";
-
-      outer: while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        for (const line of decoder.decode(value, { stream: true }).split("\n")) {
-          if (!line.startsWith("data: ")) continue;
-          const raw = line.slice(6).trim();
-          if (raw === "[DONE]") break outer;
-          try {
-            const evt = JSON.parse(raw);
-            if (evt.type === "content_block_delta" && evt.delta?.text) {
-              full += evt.delta.text;
-              updateBubble(loadId, full);
-            }
-          } catch {}
-        }
+      const data = await res.json();
+      const full = data.content?.[0]?.text || "";
+      if (full) {
+        updateBubble(loadId, full);
+        chatHistory.push({ role: "assistant", content: full });
       }
-
-      if (full) chatHistory.push({ role: "assistant", content: full });
 
     } catch (err) {
       updateBubble(loadId, "Error: " + err.message);
