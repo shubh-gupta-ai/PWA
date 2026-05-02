@@ -334,18 +334,34 @@
 
   function populateDateSelect() {
     const frag = document.createDocumentFragment();
+
+    const addOpt = (value, label, disabled = false) => {
+      const opt = document.createElement("option");
+      opt.value = value;
+      opt.textContent = label;
+      if (disabled) opt.disabled = true;
+      frag.appendChild(opt);
+    };
+
+    // Aggregate views first
+    addOpt("all-7",  "All – 7 days");
+    addOpt("all-30", "All – 30 days");
+    addOpt("",       "──────────", true);
+
+    // Individual days
     for (let i = 0; i < 7; i++) {
       const d = offsetDate(i);
-      const opt = document.createElement("option");
-      opt.value = d;
-      opt.textContent = i === 0 ? `Today (${shortDate(d)})` : i === 1 ? `Yesterday (${shortDate(d)})` : shortDate(d);
-      frag.appendChild(opt);
+      addOpt(d, i === 0 ? `Today (${shortDate(d)})` : i === 1 ? `Yesterday (${shortDate(d)})` : shortDate(d));
     }
+
     dateEl.appendChild(frag);
+
     const saved = localStorage.getItem("papers:date");
-    if (saved && [...dateEl.options].some(o => o.value === saved)) {
+    if (saved && [...dateEl.options].some(o => o.value === saved && !o.disabled)) {
       dateEl.value = saved;
       state.date = saved;
+    } else {
+      dateEl.value = state.date; // today
     }
     sortEl.value = state.sort;
   }
@@ -389,35 +405,88 @@
   }
 
   async function fetchPapers(date) {
-    const cacheKey = `papers:${date}`;
-    const cached = readCache(cacheKey);
-    if (cached) {
-      state.papers = cached.papers;
-      state.fetchedAt = cached.fetchedAt;
-      render();
-    } else {
-      state.papers = [];
-      statusEl.textContent = "Loading papers…";
-      listEl.innerHTML = "";
-    }
-
     refreshEl.classList.add("spinning");
     try {
-      const fresh = await fetchOnce(date);
-      state.papers = fresh;
-      state.fetchedAt = Date.now();
-      writeCache(cacheKey, { papers: fresh, fetchedAt: state.fetchedAt });
-      render();
-    } catch (err) {
-      console.warn("fetch failed:", err);
+      if (date === "all-7" || date === "all-30") {
+        await fetchMultipleDays(date === "all-7" ? 7 : 30);
+        return;
+      }
+
+      const cacheKey = `papers:${date}`;
+      const cached = readCache(cacheKey);
       if (cached) {
-        showToast("Couldn't refresh — showing cached");
+        state.papers = cached.papers;
+        state.fetchedAt = cached.fetchedAt;
+        render();
       } else {
-        statusEl.innerHTML = `Couldn't load papers.<br><button class="retry" type="button" onclick="location.reload()">Retry</button>`;
+        state.papers = [];
+        statusEl.textContent = "Loading papers…";
+        listEl.innerHTML = "";
+      }
+
+      try {
+        const fresh = await fetchOnce(date);
+        state.papers = fresh;
+        state.fetchedAt = Date.now();
+        writeCache(cacheKey, { papers: fresh, fetchedAt: state.fetchedAt });
+        render();
+      } catch (err) {
+        console.warn("fetch failed:", err);
+        if (cached) {
+          showToast("Couldn't refresh — showing cached");
+        } else {
+          statusEl.innerHTML = `Couldn't load papers.<br><button class="retry" type="button" onclick="location.reload()">Retry</button>`;
+        }
       }
     } finally {
       refreshEl.classList.remove("spinning");
     }
+  }
+
+  async function fetchMultipleDays(n) {
+    const dates = Array.from({ length: n }, (_, i) => offsetDate(i));
+
+    // Render from cache immediately if anything is available
+    const initial = mergeFromCache(dates);
+    if (initial.length) {
+      state.papers = initial;
+      state.fetchedAt = Date.now();
+      render();
+    } else {
+      state.papers = [];
+      statusEl.style.display = "block";
+      statusEl.textContent = `Loading ${n} days of papers…`;
+      listEl.innerHTML = "";
+    }
+
+    // Fetch uncached days in parallel batches of 5
+    const uncached = dates.filter(d => !readCache(`papers:${d}`));
+    for (let i = 0; i < uncached.length; i += 5) {
+      await Promise.allSettled(
+        uncached.slice(i, i + 5).map(async (d) => {
+          try {
+            const papers = await fetchOnce(d);
+            writeCache(`papers:${d}`, { papers, fetchedAt: Date.now() });
+          } catch {}
+        })
+      );
+      state.papers = mergeFromCache(dates);
+      state.fetchedAt = Date.now();
+      render();
+    }
+  }
+
+  function mergeFromCache(dates) {
+    const seen = new Set();
+    const out = [];
+    for (const date of dates) {
+      const c = readCache(`papers:${date}`);
+      if (!c) continue;
+      for (const p of c.papers) {
+        if (!seen.has(p.id)) { seen.add(p.id); out.push(p); }
+      }
+    }
+    return out;
   }
 
   async function fetchOnce(date) {
@@ -468,13 +537,16 @@
   function render() {
     const filtered = applyFilters();
     const total = state.papers.length;
+    const dateLabel = state.date === "all-7"  ? "Last 7 days" :
+                      state.date === "all-30" ? "Last 30 days" :
+                      shortDate(state.date);
     metaEl.textContent = total
-      ? `${shortDate(state.date)} · ${filtered.length}${filtered.length !== total ? "/" + total : ""} papers · refreshed ${relativeTime(state.fetchedAt)}`
-      : `${shortDate(state.date)}`;
+      ? `${dateLabel} · ${filtered.length}${filtered.length !== total ? "/" + total : ""} papers · refreshed ${relativeTime(state.fetchedAt)}`
+      : dateLabel;
 
     if (!total) {
       statusEl.style.display = "block";
-      statusEl.textContent = state.fetchedAt ? "No papers for this date." : "Loading papers…";
+      statusEl.textContent = state.fetchedAt ? "No papers found." : "Loading papers…";
       listEl.innerHTML = "";
       return;
     }
